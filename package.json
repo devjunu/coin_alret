@@ -1,0 +1,21 @@
+{
+  "name": "coin_alert",
+  "version": "1.0.0",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "dependencies": {
+    "binance-api-node": "^0.12.9",
+    "dotenv": "^16.4.7",
+    "electrion": "^0.0.1-security",
+    "electron": "^33.2.1",
+    "node-wav-player": "^1.0.0",
+    "sound-play": "^1.1.0"
+  }
+}
