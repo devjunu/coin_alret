@@ -9,6 +9,10 @@ let pnlData = {
 // 포지션 데이터를 저장할 객체
 let positions = new Map();
 
+// 초대 수익 및 최대 손실을 저장할 변수
+let maxProfit = 0;
+let maxLoss = 0;
+
 // 초기 데이터 로드
 // document.getElementById('fetchOrdersBtn').addEventListener('click', async () => {
 //     const trades = await ipcRenderer.invoke('fetch-initial-orders');
@@ -133,10 +137,26 @@ function updateTotalPnL(positionData) {
     const totalPnL = positionData.reduce((sum, position) => 
         sum + parseFloat(position.unRealizedProfit), 0);
     
+    // 원화로 변환 (예: 1 USDT = 1300 KRW)
+    const exchangeRate = 1436.22; // 환율 설정
+    const totalPnLInKRW = totalPnL * exchangeRate;
+
     const totalPnLElement = document.getElementById('totalPnL');
-    totalPnLElement.textContent = `${totalPnL.toFixed(2)} USDT`;
+    totalPnLElement.textContent = `${totalPnL.toFixed(2)} USDT (${totalPnLInKRW.toFixed(0)} KRW)`;
     totalPnLElement.className = totalPnL >= 0 ? 'text-2xl font-bold text-green-600' : 
         'text-2xl font-bold text-red-600';
+
+    // 최대 수익 및 최대 손실 업데이트
+    if (totalPnL > maxProfit) {
+        maxProfit = totalPnL;
+    }
+    if (totalPnL < maxLoss) {
+        maxLoss = totalPnL;
+    }
+
+    // 최대 수익 및 최대 손실 표시 업데이트
+    document.getElementById('maxProfit').textContent = `최대 수익: ${maxProfit.toFixed(2)} USDT (${(maxProfit * exchangeRate).toFixed(0)} KRW)`;
+    document.getElementById('maxLoss').textContent = `최대 손실: ${maxLoss.toFixed(2)} USDT (${(maxLoss * exchangeRate).toFixed(0)} KRW)`;
 }
 
 // 초기 포지션 정보 가져오기
@@ -145,10 +165,14 @@ async function updatePositions() {
     updatePositionsList(positions);
     updatePnLChart(positions);
     updateTotalPnL(positions);
+    updateProfitPercentageChart(positions);
 }
 
 // 페이지 로드 시 초기 데이터 가져오기
-window.addEventListener('DOMContentLoaded', updatePositions);
+window.addEventListener('DOMContentLoaded', () => {
+    updatePositions(); // 초기 데이터 로드
+    setInterval(updatePositions, 1000); // 1초마다 업데이트
+});
 
 // 테마 토글 기능
 const themeToggle = document.getElementById('themeToggle');
@@ -194,4 +218,59 @@ function updateThemeIcons(theme) {
     lightIcon.classList.remove('hidden');
     darkIcon.classList.add('hidden');
   }
+}
+
+// 각 코인별 수익 비율 차트 초기화
+const ctxProfitPercentage = document.getElementById('profitPercentageChart').getContext('2d');
+const profitPercentageChart = new Chart(ctxProfitPercentage, {
+    type: 'pie',
+    data: {
+        labels: [], // 코인 이름
+        datasets: [{
+            label: '각 코인별 수익 비율',
+            data: [], // 수익 비율 데이터
+            backgroundColor: [
+                'rgba(75, 192, 192, 0.6)',
+                'rgba(255, 99, 132, 0.6)',
+                'rgba(255, 206, 86, 0.6)',
+                'rgba(54, 162, 235, 0.6)',
+                'rgba(153, 102, 255, 0.6)',
+            ],
+            borderColor: 'rgba(255, 255, 255, 1)',
+            borderWidth: 1
+        }]
+    },
+    options: {
+        responsive: true,
+        plugins: {
+            legend: {
+                position: 'top',
+            },
+            tooltip: {
+                callbacks: {
+                    label: function(tooltipItem) {
+                        return `${tooltipItem.label}: ${tooltipItem.raw.toFixed(2)}%`;
+                    }
+                }
+            }
+        }
+    }
+});
+
+// 각 코인별 수익 비율 업데이트 함수
+function updateProfitPercentageChart(positionData) {
+    const labels = [];
+    const data = [];
+
+    positionData.forEach(position => {
+        if (parseFloat(position.positionAmt) !== 0) {
+            labels.push(position.symbol);
+            const pnlPercentage = ((parseFloat(position.unRealizedProfit) / parseFloat(position.entryPrice)) * 100).toFixed(2);
+            data.push(parseFloat(pnlPercentage));
+        }
+    });
+
+    profitPercentageChart.data.labels = labels;
+    profitPercentageChart.data.datasets[0].data = data;
+    profitPercentageChart.update();
 }
