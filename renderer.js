@@ -67,8 +67,7 @@ function addOrderToList(order) {
 // 포지션 목록 업데이트
 function updatePositionsList(positionData) {
     const positionList = document.getElementById('positionList');
-    positionList.innerHTML = '';
-
+    
     positionData.forEach(position => {
         if (parseFloat(position.positionAmt) === 0) return;
 
@@ -78,31 +77,78 @@ function updatePositionsList(positionData) {
         const pnlPercentage = ((markPrice - entryPrice) / entryPrice * 100 * 
             (position.positionAmt > 0 ? 1 : -1)).toFixed(2);
 
-        const tr = document.createElement('tr');
-        tr.className = 'hover:bg-gray-50';
-        tr.innerHTML = `
-            <td class="px-4 py-2">${position.symbol}</td>
-            <td class="px-4 py-2">
-                <span class="${position.positionAmt > 0 ? 'text-green-600' : 'text-red-600'}">
-                    ${position.positionAmt > 0 ? '롱' : '숏'}
-                </span>
-            </td>
-            <td class="px-4 py-2">${entryPrice.toFixed(2)}</td>
-            <td class="px-4 py-2">${Math.abs(parseFloat(position.positionAmt))}</td>
-            <td class="px-4 py-2">${position.leverage}x</td>
-            <td class="px-4 py-2 ${pnl >= 0 ? 'text-green-600' : 'text-red-600'}">
-                ${pnl.toFixed(2)} USDT
-            </td>
-            <td class="px-4 py-2 ${pnl >= 0 ? 'text-green-600' : 'text-red-600'}">
-                ${pnlPercentage}%
-            </td>
-        `;
-        positionList.appendChild(tr);
+        // 기존 행이 있는지 확인
+        const existingRow = document.querySelector(`tr[data-symbol="${position.symbol}"]`);
+        const oldPnlPercentage = existingRow ? 
+            parseFloat(existingRow.querySelector('.pnl-percentage').textContent) : null;
+
+        if (existingRow) {
+            // 기존 행 업데이트
+            existingRow.innerHTML = createPositionRowHTML(position, entryPrice, pnl, pnlPercentage);
+            
+            // 수익률 변화에 따른 애니메이션 효과
+            if (oldPnlPercentage !== null) {
+                const pnlCell = existingRow.querySelector('.pnl-percentage');
+                if (parseFloat(pnlPercentage) > oldPnlPercentage) {
+                    flashBackground(pnlCell, 'rgba(34, 197, 94, 0.2)'); // 연한 초록색
+                } else if (parseFloat(pnlPercentage) < oldPnlPercentage) {
+                    flashBackground(pnlCell, 'rgba(239, 68, 68, 0.2)'); // 연한 빨간색
+                }
+            }
+        } else {
+            // 새로운 행 추가
+            const tr = document.createElement('tr');
+            tr.className = 'hover:bg-gray-50';
+            tr.setAttribute('data-symbol', position.symbol);
+            tr.innerHTML = createPositionRowHTML(position, entryPrice, pnl, pnlPercentage);
+            positionList.appendChild(tr);
+        }
+    });
+
+    // 더 이상 존재하지 않는 포지션 제거
+    const existingRows = positionList.querySelectorAll('tr[data-symbol]');
+    existingRows.forEach(row => {
+        const symbol = row.getAttribute('data-symbol');
+        if (!positionData.find(p => p.symbol === symbol)) {
+            row.remove();
+        }
     });
 
     // 총 포지션 수 업데이트
     document.getElementById('totalPositions').textContent = 
         positionData.filter(p => parseFloat(p.positionAmt) !== 0).length;
+}
+
+// 포지션 행 HTML 생성 함수
+function createPositionRowHTML(position, entryPrice, pnl, pnlPercentage) {
+    return `
+        <td class="px-4 py-2">${position.symbol}</td>
+        <td class="px-4 py-2">
+            <span class="${position.positionAmt > 0 ? 'text-green-600' : 'text-red-600'}">
+                ${position.positionAmt > 0 ? '롱' : '숏'}
+            </span>
+        </td>
+        <td class="px-4 py-2">${entryPrice.toFixed(2)}</td>
+        <td class="px-4 py-2">${Math.abs(parseFloat(position.positionAmt))}</td>
+        <td class="px-4 py-2">${position.leverage}x</td>
+        <td class="px-4 py-2 ${pnl >= 0 ? 'text-green-600' : 'text-red-600'}">
+            ${pnl.toFixed(2)} USDT
+        </td>
+        <td class="px-4 py-2 pnl-percentage ${pnl >= 0 ? 'text-green-600' : 'text-red-600'}">
+            ${pnlPercentage}%
+        </td>
+    `;
+}
+
+// 배경색 플래시 효과 함수
+function flashBackground(element, color) {
+    element.style.transition = 'background-color 0s';
+    element.style.backgroundColor = color;
+    
+    setTimeout(() => {
+        element.style.transition = 'background-color 1s';
+        element.style.backgroundColor = 'transparent';
+    }, 50);
 }
 
 // PnL 차트 업데이트
